@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -10,4 +5,68 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// * User: una persona del sistema
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  userName  String   @unique
+  password  String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ! Relaciones
+  chats    ChatMember[] // ! Chats en los que partivipa
+  messages Message[] // ! Mensajes que ha enviado
+
+  @@map("users")
+}
+
+// * Chat: Una conversasion (1:1 o grupo)
+model Chat {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String? // ! Null para chats 1:1, requerido para grupos
+  type      String // ! 'direct' o 'group'
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ! Relaciones
+  members  ChatMember[]
+  messages Message[]
+
+  @@map("chats")
+}
+
+// * ChatMember: Tabla intermedia User ↔ Chat CON metadata
+model ChatMember {
+  id       String   @id @default(uuid()) @db.Uuid
+  chatId   String   @map("chat_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  role     String   @default("member") // ! 'admin' o 'member'
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  // ! Relaciones (FK)
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // ! Un usuario no puede estar dos veces en el mismo chat
+  @@unique([chatId, userId])
+  @@map("chat_members")
+}
+
+// * Message: Un mensaje dentro de un chat
+model Message {
+  id        String    @id @default(uuid()) @db.Uuid
+  content   String
+  chatId    String    @map("chat_id") @db.Uuid
+  senderId  String    @map("sender_id") @db.Uuid
+  expiresAt DateTime? @map("expires_at") // ! null = no expira (opcional)
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  // ! Relaciones (FK)
+  chat   Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
 }
