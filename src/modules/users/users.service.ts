@@ -6,7 +6,7 @@ import {
 import * as bcrypt from 'bcryptjs';
 import { UsersRepository } from './users.repository';
 import { RegisterDto } from '../auth/dto/register.dto';
-import { UserPublic } from './entities/user.entity';
+import {User, UserPublic} from './entities/user.entity';
 
 // * Cuantas veces se aplica el hash, 10 es el estandar | Mas alto = mas seguro pero mas lento
 const SALT_ROUNDS = 10;
@@ -48,5 +48,10 @@ export class UsersService {
             throw new NotFoundException(`Usuario ${id} no encontrado`);
         }
         return user;
+    }
+
+    // * Buscar por email (con password, para login)
+    async findByEmail(email: string): Promise<User | null> {
+        return this.repo.findByEmail(email)
     }
 }

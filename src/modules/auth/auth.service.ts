@@ -15,14 +15,13 @@ export interface LoginResponse {
 export class AuthService {
     constructor(
         private readonly userService: UsersService,
-        private readonly usersRepo: UsersRepository,
         private readonly jwt: JwtService,
     ) {}
 
     // * Login
     async login(dto: LoginDto): Promise<LoginResponse> {
         // ! Buscar por email
-        const user = await this.usersRepo.findByEmail(dto.email);
+        const user = await this.userService.findByEmail(dto.email);
 
         // ! Si no existe, mismo error que si la contraseña fuera mala
         if (!user) {
