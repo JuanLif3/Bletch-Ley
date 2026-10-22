@@ -91,4 +91,113 @@ export class ChatsRepository {
 
         return chats as ChatWithMembers[];
     }
+
+    // * Creacion de grupo | El creador como 'admin', los demas como 'member'
+    async createGroup(
+        creatorId: string,
+        name: string,
+        memberIds: string[],
+    ): Promise<ChatWithMembers> {
+        // Deduplicar y excluir al creador
+        const uniqueMembers = [...new Set(memberIds)].filter(
+            (id) => id !== creatorId,
+        );
+
+        const chat = await this.prisma.chat.create({
+            data: {
+                type: 'group',
+                name,
+                members: {
+                    create: [
+                        { userId: creatorId, role: 'admin' },
+                        ...uniqueMembers.map((userId) => ({
+                            userId,
+                            role: 'member',
+                        })),
+                    ],
+                },
+            },
+            include: {
+                members: { select: memberSelect },
+            },
+        });
+
+        return chat as ChatWithMembers;
+    }
+
+    // * Buscar chat por ID
+    async findById(chatId: string): Promise<ChatWithMembers | null> {
+        const chat = await this.prisma.chat.findUnique({
+            where: { id: chatId },
+            include: {
+                members: { select: memberSelect },
+            },
+        });
+
+        return chat as ChatWithMembers | null;
+    }
+
+    // * Verificar membresia de un usuario en un chat
+    async findMemberShip(chatId: string, userId: string) {
+        return this.prisma.chatMember.findUnique({
+            where: {
+                chatId_userId: { chatId, userId },
+            },
+        });
+    }
+
+    // * Actualizar nombre del chat
+    async updateName(chatId: string, name: string): Promise<ChatWithMembers> {
+        const chat = await this.prisma.chat.update({
+            where: { id: chatId },
+            data: { name },
+            include: {
+                members: { select: memberSelect },
+            },
+        });
+
+        return chat as ChatWithMembers;
+    }
+
+    // * Agregar miembro
+    async addMember(
+        chatId: string,
+        userId: string,
+        role: 'admin' | 'member' = 'member',
+    ): Promise<ChatMemberWithUser> {
+        const member = await this.prisma.chatMember.create({
+            data: { chatId, userId, role },
+            select: memberSelect,
+        });
+
+        return member as ChatMemberWithUser;
+    }
+
+    // * Quitar miembro
+    async removeMember(chatId: string, userId: string): Promise<boolean> {
+        try {
+            await this.prisma.chatMember.delete({
+                where: { chatId_userId: { chatId, userId } },
+            });
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    // * Contar admins de un chat, util ppara validar que no se quede sin admins
+    async countAdmins(chatId: string): Promise<number> {
+        return this.prisma.chatMember.count({
+            where: { chatId, role: 'admin' },
+        });
+    }
+
+    // * Verificar que un usuario existe para validar abtes de agregar a un grupo
+    async userExists(userId: string): Promise<boolean> {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true },
+        });
+        return !!user;
+    }
 }
